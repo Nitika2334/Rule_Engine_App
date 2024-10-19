@@ -2,7 +2,6 @@ from App import db
 from App.Models.RuleModel import RuleModel
 from App.Models.NodeModel import NodeModel
 
-from App import db
 
 def create_rule_schema(rule_name, rule_text, root, postfix_expr):
     existing_rule = db.session.query(RuleModel).filter_by(rule_name=rule_name).first()
@@ -25,17 +24,13 @@ def save_node(elem_type, value, left=None, right=None):
     node.save()
     return node
 
-def save_rule(rule_name, rule, root, postfix_expr=[]):
-    new_rule = RuleModel(rule_name=rule_name, rule=rule, root=root, postfix_expr=postfix_expr)
+def save_rule(rule_name, rule, root):
+    new_rule = RuleModel(rule_name=rule_name, rule=rule, root=root)
     new_rule.save()
     return new_rule
 
 def find_rule_by_name(rule_name):
     return RuleModel.find_one({"rule_name": rule_name})
 
-def get_all_rules_schema():
-    try:
-        rules=RuleModel.find_all()
-        return rules, 200
-    except Exception as e:
-        return {"error": str(e)}, 500
+def get_all_rules_from_db():
+    return RuleModel.find_all()

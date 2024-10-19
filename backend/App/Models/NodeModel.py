@@ -1,22 +1,14 @@
-from sqlalchemy import Integer, String, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 from App import db
-from datetime import datetime
 
-Base = declarative_base()
-
-class NodeModel(Base):
+class NodeModel(db.Model):
     __tablename__ = 'nodes'
 
-    id = db.Column(Integer, primary_key=True)
-    elem_type = db.Column(Integer)
-    value = db.Column(String)
-    left_id = db.Column(Integer, ForeignKey('nodes.id'))
-    right_id = db.Column(Integer, ForeignKey('nodes.id'))
+    id = db.Column(db.Integer, primary_key=True)
+    elem_type = db.Column(db.Integer, nullable=False)  # Can store types like LOGICAL, COMPARISON, etc.
+    value = db.Column(db.String(255), nullable=False)
+    left = db.Column(db.Integer, db.ForeignKey('nodes.id'), nullable=True)
+    right = db.Column(db.Integer, db.ForeignKey('nodes.id'), nullable=True)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    left = relationship("Node", foreign_keys=[left_id], remote_side=[id], backref="parent_left")
-    right = relationship("Node", foreign_keys=[right_id], remote_side=[id], backref="parent_right")
+    def save(self):
+        db.session.add(self)
+        db.session.commit()

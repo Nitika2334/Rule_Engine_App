@@ -1,24 +1,22 @@
-from datetime import datetime
 from App import db
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
-
-class RuleModel(Base):
+class RuleModel(db.Model):
     __tablename__ = 'rules'
 
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    rule_name = db.Column(db.String)
-    rule = db.Column(db.String)
-    root_id = db.Column(UUID(as_uuid=True), ForeignKey('nodes.id'))
-    postfix_expr = db.Column(db.String)  # Stored as JSON string
-    root = relationship('NodeModel', back_populates='rules')
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = db.Column(db.Integer, primary_key=True)
+    rule_name = db.Column(db.String(255), unique=True)
+    rule = db.Column(db.Text, nullable=False)
+    root = db.Column(db.Integer, nullable=False)
+    postfix_expr = db.Column(db.JSON, nullable=False)
 
-    def __repr__(self):
-        return f"<Rule(id={self.id}, rule_name='{self.rule_name}')>"
+    @classmethod
+    def find_one(cls, filters):
+        return cls.query.filter_by(**filters).first()
+
+    @classmethod
+    def find_all(cls):
+        return cls.query.all()
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()

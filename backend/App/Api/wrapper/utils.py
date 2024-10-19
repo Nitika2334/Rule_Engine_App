@@ -1,5 +1,13 @@
 import re
-from App.Api.wrapper.schema import create_rule_schema,create_node,save_node,find_rule_by_name,save_rule,get_all_rules_schema
+from App.Api.wrapper.schema import (
+    create_rule_schema,
+    create_node,
+    save_node,
+    find_rule_by_name,
+    save_rule,
+    get_all_rules_from_db,
+)
+from App.Models.NodeModel import NodeModel
 
 PRECEDENCE = {
     '(': -1,
@@ -10,7 +18,7 @@ PRECEDENCE = {
     '>': 2,
     '=': 2,
     '<=': 2,
-    '>=': 2
+    '>=': 2,
 }
 
 ElemType = {
@@ -18,12 +26,14 @@ ElemType = {
     'COMPARISON': 2,
     'STRING': 3,
     'INTEGER': 4,
-    'VARIABLE': 5
+    'VARIABLE': 5,
 }
+
 
 def validate_rule(rule):
     rule_pattern = r"\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)\s*(AND|OR)\s*\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)"
     return bool(re.search(rule_pattern, rule, re.IGNORECASE))
+
 
 def shunting_yard(rule):
     tokens = re.findall(r"\w+|[><]=?|AND|OR|\(|\)|=", rule)
@@ -62,8 +72,8 @@ def shunting_yard(rule):
 
     return postfix_expr
 
-def create_ast(postfix_expr):
 
+def create_ast(postfix_expr):
     node_stack = []
     for token in postfix_expr:
         if token not in PRECEDENCE:
@@ -81,6 +91,7 @@ def create_ast(postfix_expr):
             node_stack.append(node)
 
     return node_stack[0] if node_stack else None
+
 
 def create_rule(data):
     try:
@@ -112,10 +123,11 @@ def create_rule(data):
             return {"error": error}, 400
 
         return {"message": "Rule created successfully", "rule": new_rule.id}, 201
-    
+
     except Exception as e:
         return {"error": str(e)}, 500
-    
+
+
 def combine_rule(rules):
     combined_ast = None
     for rule in rules:
@@ -128,6 +140,7 @@ def combine_rule(rules):
             combined_ast = combined_node
 
     return combined_ast
+
 
 def combine_rules(data):
     try:
@@ -154,8 +167,8 @@ def combine_rules(data):
         combined_ast = combine_rule(rules)
         if combined_ast:
             combined_rule_str = " AND ".join(rules)
-            new_rule = save_rule(rule_name, combined_rule_str, combined_ast._id)
-            return {"message": "Rules combined successfully", "rule": new_rule}, 201
+            new_rule = save_rule(rule_name, combined_rule_str, combined_ast.id)
+            return {"message": "Rules combined successfully", "rule": new_rule.id}, 201
         else:
             return {"error": "Failed to combine rules into AST"}, 500
     except Exception as e:
@@ -164,70 +177,83 @@ def combine_rules(data):
 
 def get_all_rules():
     try:
-        rules = get_all_rules_schema()
+        rules = get_all_rules_from_db()
         return rules, 200
     except Exception as e:
         return {"error": str(e)}, 500
-    
 
-def evaluate_ast(root, conditions):
-    if root.elem_type == ElemType['LOGICAL']:
-        # Perform logical operations
-        left_value = evaluate_ast(root.left, conditions)
-        right_value = evaluate_ast(root.right, conditions)
-        if root.value == 'and':
-            return left_value and right_value
-        elif root.value == 'or':
-            return left_value or right_value
-    
-    elif root.elem_type == ElemType['COMPARISON']:
-        # Perform comparison operations
-        variable_name = root.left.value
-        condition_value = conditions.get(variable_name)
-        comparison_value = root.right.value
-
-        if condition_value is None:
-            raise ValueError(f"Condition for {variable_name} not provided.")
-        
-        # Perform the comparison based on the operator
-        if root.value == '=':
-            return condition_value == comparison_value
-        elif root.value == '>':
-            return condition_value > comparison_value
-        elif root.value == '<':
-            return condition_value < comparison_value
-        elif root.value == '>=':
-            return condition_value >= comparison_value
-        elif root.value == '<=':
-            return condition_value <= comparison_value
-    
-    elif root.elem_type in [ElemType['STRING'], ElemType['INTEGER'], ElemType['VARIABLE']]:
-        # Return variable value
-        return conditions.get(root.value)
-    
-    return False
 
 def evaluate_rule(data):
     try:
         rule_name = data.get('rule_name')
         conditions = data.get('conditions')
 
-        # Validate input
-        if not rule_name or not conditions:
-            return {"error": "Both rule_name and conditions are required"}, 400
-        
-        # Retrieve the rule by name
-        rule = find_rule_by_name(rule_name)
-        if not rule:
-            return {"error": f"Rule with name {rule_name} not found"}, 404
-        
-        # Get the AST from the rule
-        root_node = rule.root
-        
-        # Evaluate the AST based on the conditions
-        evaluation_result = evaluate_ast(root_node, conditions)
-        
+        evaluation_result = evaluate_ast(rule_name, conditions)
+
         return {'message': 'Rule evaluated successfully', 'evaluation_result': evaluation_result}, 200
 
     except Exception as e:
         return {"error": str(e)}, 500
+
+
+def evaluate_ast(rule_name, conditions):
+    # Fetch the rule from the database using rule_name
+    rule = find_rule_by_name(rule_name)
+    if not rule:
+        return {"error": f"Rule '{rule_name}' not found"}, 404
+
+    # Retrieve the root node from the AST
+    root_node = NodeModel.query.filter_by(id=rule.root).first()
+    if not root_node:
+        return {"error": "AST root node not found"}, 500
+
+    # Evaluate the AST starting from the root node
+    result = evaluate_node(root_node, conditions)
+    return result
+
+
+def evaluate_node(node, conditions):
+    """
+    Recursively evaluates the AST node.
+
+    Args:
+        node: The current node being evaluated.
+        conditions: A dictionary of variable values used in the comparison.
+
+    Returns:
+        The result of the evaluation: True/False for logical/comparison nodes or a variable's value for leaf nodes.
+    """
+    if node.elem_type == ElemType['LOGICAL']:
+        # Logical operator (AND/OR)
+        left_result = evaluate_node(NodeModel.query.filter_by(id=node.left).first(), conditions)
+        right_result = evaluate_node(NodeModel.query.filter_by(id=node.right).first(), conditions)
+
+        if node.value == 'and':
+            return left_result and right_result
+        elif node.value == 'or':
+            return left_result or right_result
+    elif node.elem_type == ElemType['COMPARISON']:
+        # Comparison operator (<, >, =, <=, >=)
+        left_value = evaluate_node(NodeModel.query.filter_by(id=node.left).first(), conditions)
+        right_value = evaluate_node(NodeModel.query.filter_by(id=node.right).first(), conditions)
+
+        if node.value == '<':
+            return left_value < right_value
+        elif node.value == '>':
+            return left_value > right_value
+        elif node.value == '=':
+            return left_value == right_value
+        elif node.value == '<=':
+            return left_value <= right_value
+        elif node.value == '>=':
+            return left_value >= right_value
+    elif node.elem_type in [ElemType['STRING'], ElemType['INTEGER'], ElemType['VARIABLE']]:
+        # If the node is a variable, lookup its value in conditions
+        if node.elem_type == ElemType['VARIABLE']:
+            return conditions.get(node.value)
+        else:
+            # Otherwise, return the value as-is (for constants like '5' or "'string'")
+            return node.value
+
+    # If something goes wrong or an unknown element type is encountered, return None
+    return None
