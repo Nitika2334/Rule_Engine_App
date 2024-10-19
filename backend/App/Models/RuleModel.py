@@ -16,7 +16,6 @@ class RuleModel(Base):
     rule = db.Column(db.String)
     root_id = db.Column(UUID(as_uuid=True), ForeignKey('nodes.id'))
     postfix_expr = db.Column(db.String)  # Stored as JSON string
-
     root = relationship('NodeModel', back_populates='rules')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

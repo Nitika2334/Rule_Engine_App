@@ -6,7 +6,7 @@ from datetime import datetime
 
 Base = declarative_base()
 
-class Node(Base):
+class NodeModel(Base):
     __tablename__ = 'nodes'
 
     id = db.Column(Integer, primary_key=True)

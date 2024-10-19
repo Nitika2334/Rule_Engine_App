@@ -23,17 +23,16 @@ def create_app(config_name=None):
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
-        from App.api.wrapper.utils import is_token_revoked
+        from App.Api.wrapper.utils import is_token_revoked
         return is_token_revoked(jwt_payload)
 
-    from App.Models.User.UserModel import User
-    from App.Models.Comment.CommentModel import Comment
-    from App.Models.Post.PostModel import Post
+    from App.Models.NodeModel import NodeModel
+    from App.Models.RuleModel import RuleModel
 
     with app.app_context():
         db.create_all()
 
-    from App.api.route import route
+    from App.Api.route import route
     app.register_blueprint(route, url_prefix='/api/v1')
 
     return app
