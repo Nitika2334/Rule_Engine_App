@@ -128,18 +128,28 @@ def create_rule(data):
         return {"error": str(e)}, 500
 
 
-def combine_rule(rules):
+def combine(rules):
     combined_ast = None
     for rule in rules:
+        # Convert the rule into postfix notation
         postfix_expr = shunting_yard(rule)
         root = create_ast(postfix_expr)
+
+        # If this is the first rule, set it as the combined AST
         if not combined_ast:
             combined_ast = root
         else:
-            combined_node = save_node(ElemType['LOGICAL'], 'and', combined_ast, root)
-            combined_ast = combined_node
+            # Create a new node representing the logical combination (AND)
+            combined_node = save_node(
+                ElemType['LOGICAL'], 
+                'and', 
+                left=combined_ast.id,  # Use the ID of the combined_ast
+                right=root.id          # Use the ID of the new root
+            )
+            combined_ast = combined_node  # Update combined_ast to the new combined node
 
     return combined_ast
+
 
 
 def combine_rules(data):
@@ -158,16 +168,24 @@ def combine_rules(data):
         if existing_rule:
             return {"error": "A rule with this name already exists"}, 400
 
-        # Validate each rule
+        # Validate each rule and collect postfix expressions
+        postfix_expressions = []
         for rule in rules:
             if not validate_rule(rule):
                 return {"error": f"Invalid rule format: {rule}"}, 400
+            
+            # Get the postfix expression for the current rule
+            postfix_expr = shunting_yard(rule)
+            # Join the postfix expression into a string for saving
+            postfix_expressions.append(" ".join(postfix_expr))
 
         # Combine rules into AST
-        combined_ast = combine_rule(rules)
+        combined_ast = combine(rules)
         if combined_ast:
             combined_rule_str = " AND ".join(rules)
-            new_rule = save_rule(rule_name, combined_rule_str, combined_ast.id)
+            # Create the combined postfix expression as a string
+            combined_postfix_expr = " AND ".join(postfix_expressions)
+            new_rule = save_rule(rule_name, combined_rule_str, combined_ast.id, combined_postfix_expr)  # Pass the postfix expression
             return {"message": "Rules combined successfully", "rule": new_rule.id}, 201
         else:
             return {"error": "Failed to combine rules into AST"}, 500
@@ -178,7 +196,9 @@ def combine_rules(data):
 def get_all_rules():
     try:
         rules = get_all_rules_from_db()
-        return rules, 200
+        # Convert each rule to a dictionary
+        rules_list = [rule.to_dict() for rule in rules]
+        return rules_list, 200
     except Exception as e:
         return {"error": str(e)}, 500
 

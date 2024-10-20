@@ -24,13 +24,14 @@ def save_node(elem_type, value, left=None, right=None):
     node.save()
     return node
 
-def save_rule(rule_name, rule, root):
-    new_rule = RuleModel(rule_name=rule_name, rule=rule, root=root)
-    new_rule.save()
+def save_rule(rule_name, rule, root, postfix_expr):
+    new_rule = RuleModel(rule_name=rule_name, rule=rule, root=root, postfix_expr=postfix_expr)
+    db.session.add(new_rule)
+    db.session.commit()  # Commit the session
     return new_rule
 
 def find_rule_by_name(rule_name):
     return RuleModel.find_one({"rule_name": rule_name})
 
 def get_all_rules_from_db():
-    return RuleModel.find_all()
+    return RuleModel.query.all()
