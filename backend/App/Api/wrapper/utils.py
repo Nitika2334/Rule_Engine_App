@@ -29,11 +29,9 @@ ElemType = {
     'VARIABLE': 5,
 }
 
-
 def validate_rule(rule):
     rule_pattern = r"\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)\s*(AND|OR)\s*\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)"
     return bool(re.search(rule_pattern, rule, re.IGNORECASE))
-
 
 def shunting_yard(rule):
     tokens = re.findall(r"\w+|[><]=?|AND|OR|\(|\)|=", rule)
@@ -72,7 +70,6 @@ def shunting_yard(rule):
 
     return postfix_expr
 
-
 def create_ast(postfix_expr):
     node_stack = []
     for token in postfix_expr:
@@ -92,7 +89,6 @@ def create_ast(postfix_expr):
 
     return node_stack[0] if node_stack else None
 
-
 def create_rule(data):
     try:
         rule_name = data.get('rule_name')
@@ -100,14 +96,14 @@ def create_rule(data):
 
         # Validate input
         if not rule_name or len(rule_name) <= 0:
-            return {"error": "rule_name can't be null or length can't be zero"}, 400
+            return {"status": "error", "message": "rule_name can't be null or length can't be zero"}, 400
 
         if not rule or not isinstance(rule, str):
-            return {"error": "rule can't be null"}, 400
+            return {"status": "error", "message": "rule can't be null"}, 400
 
         # Validate the rule format
         if not validate_rule(rule):
-            return {"error": "Invalid rule format. Ensure it contains logical and comparison operators."}, 400
+            return {"status": "error", "message": "Invalid rule format. Ensure it contains logical and comparison operators."}, 400
 
         # Convert the rule into postfix
         postfix_expr = shunting_yard(rule)
@@ -115,18 +111,23 @@ def create_rule(data):
         # Create AST
         root = create_ast(postfix_expr)
         if not root:
-            return {"error": "Failed to create AST"}, 500
+            return {"status": "error", "message": "Failed to create AST"}, 500
 
         # Save rule to DB
         new_rule, error = create_rule_schema(rule_name, rule, root, postfix_expr)
         if error:
-            return {"error": error}, 400
+            return {"status": "error", "message": error}, 400
 
-        return {"message": "Rule created successfully", "rule": new_rule.id}, 201
+        return {
+            "status": "success",
+            "message": "Rule created successfully",
+            "data": {
+                "rule_id": new_rule.id
+            }
+        }, 201
 
     except Exception as e:
-        return {"error": str(e)}, 500
-
+        return {"status": "error", "message": str(e)}, 500
 
 def combine(rules):
     combined_ast = None
@@ -150,8 +151,6 @@ def combine(rules):
 
     return combined_ast
 
-
-
 def combine_rules(data):
     try:
         rule_name = data.get('rule_name')
@@ -159,20 +158,20 @@ def combine_rules(data):
 
         # Validate input
         if not rule_name or len(rule_name) == 0:
-            return {"error": "rule_name can't be null or length can't be zero"}, 400
+            return {"status": "error", "message": "rule_name can't be null or length can't be zero"}, 400
         if not rules or not isinstance(rules, list) or len(rules) == 0:
-            return {"error": "rules must be a non-empty array"}, 400
+            return {"status": "error", "message": "rules must be a non-empty array"}, 400
 
         # Check if a rule with the same name exists
         existing_rule = find_rule_by_name(rule_name)
         if existing_rule:
-            return {"error": "A rule with this name already exists"}, 400
+            return {"status": "error", "message": "A rule with this name already exists"}, 400
 
         # Validate each rule and collect postfix expressions
         postfix_expressions = []
         for rule in rules:
             if not validate_rule(rule):
-                return {"error": f"Invalid rule format: {rule}"}, 400
+                return {"status": "error", "message": f"Invalid rule format: {rule}"}, 400
             
             # Get the postfix expression for the current rule
             postfix_expr = shunting_yard(rule)
@@ -185,23 +184,32 @@ def combine_rules(data):
             combined_rule_str = " AND ".join(rules)
             # Create the combined postfix expression as a string
             combined_postfix_expr = " AND ".join(postfix_expressions)
-            new_rule = save_rule(rule_name, combined_rule_str, combined_ast.id, combined_postfix_expr)  # Pass the postfix expression
-            return {"message": "Rules combined successfully", "rule": new_rule.id}, 201
+            new_rule = save_rule(rule_name, combined_rule_str, combined_ast.id, combined_postfix_expr)
+            return {
+                "status": "success",
+                "message": "Rules combined successfully",
+                "data": {
+                    "rule_id": new_rule.id
+                }
+            }, 201
         else:
-            return {"error": "Failed to combine rules into AST"}, 500
+            return {"status": "error", "message": "Failed to combine rules into AST"}, 500
     except Exception as e:
-        return {"error": str(e)}, 500
-
+        return {"status": "error", "message": str(e)}, 500
 
 def get_all_rules():
     try:
         rules = get_all_rules_from_db()
         # Convert each rule to a dictionary
         rules_list = [rule.to_dict() for rule in rules]
-        return rules_list, 200
+        return {
+            "status": "success",
+            "data": {
+                "rules": rules_list
+            }
+        }, 200
     except Exception as e:
-        return {"error": str(e)}, 500
-
+        return {"status": "error", "message": str(e)}, 500
 
 def evaluate_rule(data):
     try:
@@ -210,27 +218,31 @@ def evaluate_rule(data):
 
         evaluation_result = evaluate_ast(rule_name, conditions)
 
-        return {'message': 'Rule evaluated successfully', 'evaluation_result': evaluation_result}, 200
+        return {
+            "status": "success",
+            "message": "Rule evaluated successfully",
+            "data": {
+                "evaluation_result": evaluation_result
+            }
+        }, 200
 
     except Exception as e:
-        return {"error": str(e)}, 500
-
+        return {"status": "error", "message": str(e)}, 500
 
 def evaluate_ast(rule_name, conditions):
     # Fetch the rule from the database using rule_name
     rule = find_rule_by_name(rule_name)
     if not rule:
-        return {"error": f"Rule '{rule_name}' not found"}, 404
+        return {"status": "error", "message": f"Rule '{rule_name}' not found"}, 404
 
     # Retrieve the root node from the AST
     root_node = NodeModel.query.filter_by(id=rule.root).first()
     if not root_node:
-        return {"error": "AST root node not found"}, 500
+        return {"status": "error", "message": "AST root node not found"}, 500
 
     # Evaluate the AST starting from the root node
     result = evaluate_node(root_node, conditions)
     return result
-
 
 def evaluate_node(node, conditions):
     """
@@ -267,13 +279,11 @@ def evaluate_node(node, conditions):
             return left_value <= right_value
         elif node.value == '>=':
             return left_value >= right_value
-    elif node.elem_type in [ElemType['STRING'], ElemType['INTEGER'], ElemType['VARIABLE']]:
-        # If the node is a variable, lookup its value in conditions
-        if node.elem_type == ElemType['VARIABLE']:
-            return conditions.get(node.value)
-        else:
-            # Otherwise, return the value as-is (for constants like '5' or "'string'")
+    else:
+        # It's a leaf node (string/integer/variable)
+        if node.elem_type in [ElemType['STRING'], ElemType['INTEGER']]:
             return node.value
+        elif node.elem_type == ElemType['VARIABLE']:
+            return conditions.get(node.value, None)
 
-    # If something goes wrong or an unknown element type is encountered, return None
     return None
