@@ -2,7 +2,6 @@ from App import db
 from App.Models.RuleModel import RuleModel
 from App.Models.NodeModel import NodeModel
 
-
 def create_rule_schema(rule_name, rule_text, root, postfix_expr):
     existing_rule = db.session.query(RuleModel).filter_by(rule_name=rule_name).first()
     if existing_rule:
@@ -31,7 +30,7 @@ def save_rule(rule_name, rule, root, postfix_expr):
     return new_rule
 
 def find_rule_by_name(rule_name):
-    return RuleModel.find_one({"rule_name": rule_name})
+    return RuleModel.query.filter_by(rule_name=rule_name).first()
 
 def get_all_rules_from_db():
     return RuleModel.query.all()
