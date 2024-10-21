@@ -6,6 +6,7 @@ from App.Api.wrapper.schema import (
     find_rule_by_name,
     save_rule,
     get_all_rules_from_db,
+    find_node_by_id,
 )
 from App.Models.NodeModel import NodeModel
 
@@ -228,7 +229,22 @@ def evaluate_rule(data):
         rule_name = data.get('rule_name')
         conditions = data.get('conditions')
 
-        evaluation_result = evaluate_ast(rule_name, conditions)
+        if not rule_name or not conditions:
+            return {"status": "error", "message": "Missing rule_name or conditions in request"}, 400
+
+        # Fetch the rule from the database
+        rule = find_rule_by_name(rule_name)
+        if not rule:
+            return {"status": "error", "message": f"Rule '{rule_name}' not found"}, 404
+
+        # Reconstruct the AST
+        root_node = reconstruct_ast(rule.root)
+        if not root_node:
+            return {"status": "error", "message": "Failed to reconstruct AST"}, 500
+
+        # Evaluate the AST
+        evaluation_result = evaluate_ast(root_node, conditions)
+        print(f'Evaluation Result: {evaluation_result}')
 
         return {
             "status": "success",
@@ -239,63 +255,84 @@ def evaluate_rule(data):
         }, 200
 
     except Exception as e:
-        return {"status": "error", "message": str(e)}, 500
+        print(f"Error evaluating Rule: {e}")
+        return {"status": "error", "message": "Internal Server Error"}, 500
 
-def evaluate_ast(rule_name, conditions):
-    # Fetch the rule from the database using rule_name
-    rule = find_rule_by_name(rule_name)
-    if not rule:
-        return {"status": "error", "message": f"Rule '{rule_name}' not found"}, 404
+def evaluate_ast(node, conditions):
+    try:
+        if not node:
+            return False
 
-    # Retrieve the root node from the AST
-    root_node = NodeModel.query.filter_by(id=rule.root).first()
-    if not root_node:
-        return {"status": "error", "message": "AST root node not found"}, 500
+        if node['elem_type'] == ElemType['COMPARISON']:
+            left_value = conditions.get(node['left']['value'], node['left']['value'])
+            right_value = conditions.get(node['right']['value'], node['right']['value'])
 
-    # Evaluate the AST starting from the root node
-    result = evaluate_node(root_node, conditions)
-    return result
+            # Convert both values to float if possible, otherwise keep as string
+            try:
+                left_value = float(left_value)
+                right_value = float(right_value)
+            except ValueError:
+                # If conversion fails, keep the values as strings
+                pass
 
-def evaluate_node(node, conditions):
-    """
-    Recursively evaluates the AST node.
+            print(f"Left Value: {left_value}")
+            print(f"Right Value: {right_value}")
 
-    Args:
-        node: The current node being evaluated.
-        conditions: A dictionary of variable values used in the comparison.
+            if left_value is None or right_value is None:
+                raise ValueError('Missing condition value for comparison')
 
-    Returns:
-        The result of the evaluation: True/False for logical/comparison nodes or a variable's value for leaf nodes.
-    """
-    if node.elem_type == ElemType['LOGICAL']:
-        # Logical operator (AND/OR)
-        left_result = evaluate_node(NodeModel.query.filter_by(id=node.left).first(), conditions)
-        right_result = evaluate_node(NodeModel.query.filter_by(id=node.right).first(), conditions)
+            if node['value'] == '>':
+                return left_value > right_value
+            elif node['value'] == '<':
+                return left_value < right_value
+            elif node['value'] == '=':  # Changed from '===' to '='
+                return left_value == right_value
+            elif node['value'] == '<=':
+                return left_value <= right_value
+            elif node['value'] == '>=':
+                return left_value >= right_value
+            else:
+                return False
 
-        if node.value == 'and':
-            return left_result and right_result
-        elif node.value == 'or':
-            return left_result or right_result
-    elif node.elem_type == ElemType['COMPARISON']:
-        # Comparison operator (<, >, =, <=, >=)
-        left_value = evaluate_node(NodeModel.query.filter_by(id=node.left).first(), conditions)
-        right_value = evaluate_node(NodeModel.query.filter_by(id=node.right).first(), conditions)
+        if node['elem_type'] == ElemType['LOGICAL']:
+            left_eval = evaluate_ast(node['left'], conditions)
+            right_eval = evaluate_ast(node['right'], conditions)
 
-        if node.value == '<':
-            return left_value < right_value
-        elif node.value == '>':
-            return left_value > right_value
-        elif node.value == '=':
-            return left_value == right_value
-        elif node.value == '<=':
-            return left_value <= right_value
-        elif node.value == '>=':
-            return left_value >= right_value
-    else:
-        # It's a leaf node (string/integer/variable)
-        if node.elem_type in [ElemType['STRING'], ElemType['INTEGER']]:
-            return node.value
-        elif node.elem_type == ElemType['VARIABLE']:
-            return conditions.get(node.value, None)
+            if node['value'].lower() == 'and':
+                return left_eval and right_eval
+            elif node['value'].lower() == 'or':
+                return left_eval or right_eval
 
-    return None
+        return True
+    except Exception as error:
+        print(f"Error evaluating AST: {error}")
+        raise ValueError('Failed to evaluate AST')
+
+# You'll need to implement this function to reconstruct the AST from your database
+from App.Api.wrapper.schema import find_node_by_id
+
+def reconstruct_ast(node_id):
+    try:
+        node = find_node_by_id(node_id)
+        if not node:
+            return None
+
+        # Create a dictionary representation of the node
+        reconstructed_node = {
+            'id': node.id,
+            'elem_type': node.elem_type,
+            'value': node.value,
+            'left': None,
+            'right': None
+        }
+
+        # Recursively reconstruct left and right children if they exist
+        if node.left:
+            reconstructed_node['left'] = reconstruct_ast(node.left)
+        if node.right:
+            reconstructed_node['right'] = reconstruct_ast(node.right)
+
+        return reconstructed_node
+    except Exception as e:
+        print(f"Error reconstructing AST: {e}")
+        return None

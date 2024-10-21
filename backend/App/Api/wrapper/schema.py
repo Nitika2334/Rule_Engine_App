@@ -34,3 +34,6 @@ def find_rule_by_name(rule_name):
 
 def get_all_rules_from_db():
     return RuleModel.query.all()
+
+def find_node_by_id(node_id):
+    return NodeModel.query.get(node_id)
