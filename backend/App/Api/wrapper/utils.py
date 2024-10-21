@@ -121,8 +121,11 @@ def create_rule(data):
         return {
             "status": "success",
             "message": "Rule created successfully",
-            "data": {
-                "rule_id": new_rule.id
+            "rule": {
+                "ruleName":new_rule.rule_name,
+                "rule":new_rule.rule,
+                "root":new_rule.root,
+                "postfixExpr": new_rule.postfix_expr
             }
         }, 201
 
@@ -188,8 +191,11 @@ def combine_rules(data):
             return {
                 "status": "success",
                 "message": "Rules combined successfully",
-                "data": {
-                    "rule_id": new_rule.id
+                "rule": {
+                    "ruleName":new_rule.rule_name,
+                    "rule":new_rule.rule,
+                    "root":new_rule.root,
+                    "postfixExpr": new_rule.postfix_expr
                 }
             }, 201
         else:
@@ -197,17 +203,23 @@ def combine_rules(data):
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
 
+
+def to_dict(self):
+    return {
+        'id': str(self.id),
+        'rule_name': self.rule_name,
+        'rule': self.rule,
+        'root': self.root,
+        'postfixExpr': self.postfix_expr
+    }
+    
+
 def get_all_rules():
     try:
         rules = get_all_rules_from_db()
         # Convert each rule to a dictionary
         rules_list = [rule.to_dict() for rule in rules]
-        return {
-            "status": "success",
-            "data": {
-                "rules": rules_list
-            }
-        }, 200
+        return rules_list,200
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
 

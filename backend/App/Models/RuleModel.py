@@ -20,11 +20,3 @@ class RuleModel(db.Model):
     def save(self):
         db.session.add(self)
         db.session.commit()
-
-    def to_dict(self):
-        return {
-            'id': str(self.id),
-            'rule_name': self.rule_name,
-            'rule': self.rule,
-            'root': self.root
-        }
