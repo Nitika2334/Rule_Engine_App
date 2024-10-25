@@ -22,6 +22,8 @@ const EvaluateRule = () => {
       setError('');
     } catch (error) {
       setError(error.response?.data?.error || 'Error Evaluating rules');
+      setResult(null);
+      setMessage('');
     }
   };
 
@@ -58,8 +60,18 @@ const EvaluateRule = () => {
           </button>
         </form>
         {result && (
-          <div className="mt-4 p-4 bg-gray-600 rounded">
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+          <div className="mt-4 p-4 bg-gray-600 rounded w-full">
+            <h3 className="text-2xl font-bold mb-2">Evaluation Result:</h3>
+            <p className="text-xl mb-2">
+              Status: <span className="font-semibold">{result.status}</span>
+            </p>
+            <p className="text-xl mb-2">
+              Result: <span className="font-semibold">{result.data.evaluation_result.toString()}</span>
+            </p>
+            <h4 className="text-xl font-bold mt-4 mb-2">Full Response:</h4>
+            <pre className="bg-gray-800 p-2 rounded">
+              {JSON.stringify(result, null, 2)}
+            </pre>
           </div>
         )}
         {message && <p className="mt-4 text-green-400 text-3xl font-bold">{message}</p>}

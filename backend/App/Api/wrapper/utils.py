@@ -34,7 +34,7 @@ def validate_rule(rule):
     rule_pattern = r"\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)\s*(AND|OR)\s*\w+\s*(<|>|=|<=|>=)\s*('[^']*'|\w+)"
     return bool(re.search(rule_pattern, rule, re.IGNORECASE))
 
-def shunting_yard(rule):
+def parse_rule_to_postfix(rule):
     tokens = re.findall(r"\w+|[><]=?|AND|OR|\(|\)|=", rule)
     stack = []
     postfix_expr = []
@@ -107,7 +107,7 @@ def create_rule(data):
             return {"status": "error", "message": "Invalid rule format. Ensure it contains logical and comparison operators."}, 400
 
         # Convert the rule into postfix
-        postfix_expr = shunting_yard(rule)
+        postfix_expr = parse_rule_to_postfix(rule)
 
         # Create AST
         root = create_ast(postfix_expr)
@@ -137,7 +137,7 @@ def combine(rules):
     combined_ast = None
     for rule in rules:
         # Convert the rule into postfix notation
-        postfix_expr = shunting_yard(rule)
+        postfix_expr = parse_rule_to_postfix(rule)
         root = create_ast(postfix_expr)
 
         # If this is the first rule, set it as the combined AST
@@ -178,7 +178,7 @@ def combine_rules(data):
                 return {"status": "error", "message": f"Invalid rule format: {rule}"}, 400
             
             # Get the postfix expression for the current rule
-            postfix_expr = shunting_yard(rule)
+            postfix_expr = parse_rule_to_postfix(rule)
             # Join the postfix expression into a string for saving
             postfix_expressions.append(" ".join(postfix_expr))
 
@@ -275,17 +275,15 @@ def evaluate_ast(node, conditions):
                 # If conversion fails, keep the values as strings
                 pass
 
-            print(f"Left Value: {left_value}")
-            print(f"Right Value: {right_value}")
-
-            if left_value is None or right_value is None:
-                raise ValueError('Missing condition value for comparison')
+            if isinstance(left_value, str) and isinstance(right_value, str):
+                left_value = left_value.lower()
+                right_value = right_value.lower()
 
             if node['value'] == '>':
                 return left_value > right_value
             elif node['value'] == '<':
                 return left_value < right_value
-            elif node['value'] == '=':  # Changed from '===' to '='
+            elif node['value'] == '=':
                 return left_value == right_value
             elif node['value'] == '<=':
                 return left_value <= right_value
