@@ -72,7 +72,7 @@ const RuleList = () => {
               <div className="ml-4 text-gray-900 bg-slate-300 p-4 text-lg">
                 <div>{rule.rule}</div>
                 <div><strong>Root:</strong> {rule.root}</div>
-                <div><strong>Postfix Expression:</strong> {rule.postfixExpr.join(' ')}</div>
+                <div><strong>Postfix Expression:</strong> {Array.isArray(rule.postfixExpr) ? rule.postfixExpr.join(' ') : rule.postfixExpr}</div>
                 <button
                   className="mt-2 bg-red-500 text-white px-2 py-1 rounded"
                   onClick={handleCloseDescription}
