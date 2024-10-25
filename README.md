@@ -1,4 +1,4 @@
-# Rule Engine Using AST
+# Rule Engine
 
 ## Objective
 
@@ -15,7 +15,7 @@ The AST is represented by a flexible data structure that allows rules to be adju
 
 ## Data Storage
 
-Rules and metadata are stored in a database. MongoDB is well-suited here due to its flexibility and JSON-like document storage format.
+Rules and metadata are stored in a database. PostgreSQL is well-suited here due to its powerful SQL compliance, robust relational structure, and support for complex queries and data integrity.
 
 ### Example Schema
 
@@ -27,15 +27,16 @@ Rules and metadata are stored in a database. MongoDB is well-suited here due to 
   "postfixExpr": "string",
   "AST": "object"
 }
+```
 ![tree diagram](tree.png)
 
-## 1.create_rule(rule_string) 
+## 1. Create Rule(rule_string) 
 
 -This function takes a string representing a rule (as shown in the examples) and returns a Node object representing the corresponding AST. The Shunting Yard algorithm is used to convert the rule string into a postfix expression, which is then used to construct the AST.
 
 ![create_rule logical diagram](create.png)
 
-### 2. `combine_rules(rules)`
+### 2. `Combine rules(rules)`
 This function takes a list of rule strings and combines them into a single AST. The function concatenates the rules using the AND operator to form a combined rule. The combined rule is then converted into an AST and returned as the root node of the combined AST.
 
 ## 3. AST Evaluation Controller
@@ -46,7 +47,7 @@ This controller provides functionality to evaluate rules stored in PostgreSQL us
 ## cloning repo
 
 ```bash
-git clone https://github.com/your-repo/repository.git
+git clone https://github.com/Nitika2334/Rule_Engine_App.git
 ```
 
 ## Backend Setup
@@ -60,12 +61,12 @@ To set up the backend for the rule engine application, follow these steps:
    ```
 
 
-## frontend Setup
+## Frontend Setup
 
 To set up the frontend for the rule engine application, follow these steps:
 
    ```bash
    cd repository/frontend
    npm i
-   node start
+   npm start
    ```
