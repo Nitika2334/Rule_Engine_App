@@ -32,7 +32,7 @@ Rules and metadata are stored in a database. PostgreSQL is well-suited here due 
 
 ## 1. Create Rule(rule_string) 
 
--This function takes a string representing a rule (as shown in the examples) and returns a Node object representing the corresponding AST. The Shunting Yard algorithm is used to convert the rule string into a postfix expression, which is then used to construct the AST.
+-This function takes a string representing a rule and returns a Node object representing the corresponding AST by converting the rule into a postfix expression, which is then used to construct the AST.
 
 ![create_rule logical diagram](create.png)
 
